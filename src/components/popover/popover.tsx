@@ -34,6 +34,7 @@ import {
 import { Arrow } from './arrow'
 import { DeprecatedPlacement, Placement } from './index'
 import { normalizePlacement } from './normalize-placement'
+import { useShowingGuard } from './use-showing-guard'
 import { Wrapper, type WrapperRef } from './wrapper'
 
 const classPrefix = `adm-popover`
@@ -76,10 +77,16 @@ export const Popover = forwardRef<PopoverRef, PopoverProps>((p, ref) => {
     onChange: props.onVisibleChange,
   })
 
+  const { markShowing, isShowing } = useShowingGuard()
+
   useImperativeHandle(
     ref,
     () => ({
-      show: () => setVisible(true),
+      show: () => {
+        // 标记进入 show() 触发链，避免同一次点击事件冒泡到 document 时被 useClickAway 立即关闭
+        markShowing()
+        setVisible(true)
+      },
       hide: () => setVisible(false),
       visible,
     }),
@@ -196,6 +203,7 @@ export const Popover = forwardRef<PopoverRef, PopoverProps>((p, ref) => {
   useClickAway(
     () => {
       if (!props.trigger) return
+      if (isShowing()) return // 跳过 show() 触发链上的 click-away
       setVisible(false)
     },
     [() => targetRef.current?.element, floatingRef],
